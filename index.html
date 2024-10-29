@@ -3,109 +3,149 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Snow Rider 2D</title>
+  <title>Snow Rider 3D Clone</title>
   <style>
-    body, html { margin: 0; padding: 0; overflow: hidden; background: #87CEEB; }
-    canvas { display: block; background: #FFF; }
+    body { margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; background-color: #e6f7ff; }
+    #gameCanvas { background-color: #a0d8ef; border: 2px solid #ccc; }
+    #score { position: absolute; top: 10px; left: 10px; font-size: 18px; color: black; }
+    #gameOver { display: none; color: red; font-size: 24px; text-align: center; background: rgba(0, 0, 0, 0.5); padding: 20px; border-radius: 8px; }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
+  <div id="score">Score: <span id="scoreValue">0</span></div>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="gameOver">Game Over! <br>Your score: <span id="finalScore"></span><br><button id="restartBtn">Restart</button></div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const scoreDisplay = document.getElementById('scoreValue');
+    const gameOverScreen = document.getElementById('gameOver');
+    const finalScoreDisplay = document.getElementById('finalScore');
+    const restartBtn = document.getElementById('restartBtn');
+    let score = 0, gameRunning = true;
 
-    let player = { x: 100, y: canvas.height - 80, width: 50, height: 50, dy: 0, isJumping: false };
-    let obstacles = [];
-    let score = 0;
-    let gameOver = false;
-
-    function jump() {
-      if (!player.isJumping) {
-        player.isJumping = true;
-        player.dy = -12;
+    class Sled {
+      constructor() {
+        this.x = 400; this.y = 500;
+        this.width = 40; this.height = 40;
+      }
+      draw() {
+        ctx.fillStyle = '#1e90ff';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+      move(direction) {
+        if (direction === 'left' && this.x > 0) this.x -= 20;
+        if (direction === 'right' && this.x < canvas.width - this.width) this.x += 20;
       }
     }
 
-    function update() {
-      if (gameOver) return;
-
-      // Player physics
-      player.dy += 0.5; // Gravity
-      player.y += player.dy;
-      if (player.y > canvas.height - player.height - 30) { // Ground collision
-        player.y = canvas.height - player.height - 30;
-        player.dy = 0;
-        player.isJumping = false;
+    class Obstacle {
+      constructor() {
+        this.x = Math.random() * (canvas.width - 40);
+        this.y = -40;
+        this.width = 40;
+        this.height = 40;
       }
+      draw() {
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+      update() {
+        this.y += 4;
+        if (this.y > canvas.height) {
+          this.y = -40;
+          this.x = Math.random() * (canvas.width - 40);
+        }
+      }
+      checkCollision(sled) {
+        return (
+          sled.x < this.x + this.width &&
+          sled.x + sled.width > this.x &&
+          sled.y < this.y + this.height &&
+          sled.y + sled.height > this.y
+        );
+      }
+    }
 
-      // Obstacles
+    class Present {
+      constructor() {
+        this.x = Math.random() * (canvas.width - 30);
+        this.y = -30;
+        this.radius = 15;
+      }
+      draw() {
+        ctx.fillStyle = 'green';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      update() {
+        this.y += 3;
+        if (this.y > canvas.height) {
+          this.y = -30;
+          this.x = Math.random() * (canvas.width - 30);
+        }
+      }
+      collect(sled) {
+        return (
+          sled.x < this.x + this.radius &&
+          sled.x + sled.width > this.x - this.radius &&
+          sled.y < this.y + this.radius &&
+          sled.y + sled.height > this.y - this.radius
+        );
+      }
+    }
+
+    const sled = new Sled();
+    const obstacles = [new Obstacle(), new Obstacle(), new Obstacle()];
+    const presents = [new Present()];
+
+    function update() {
+      if (!gameRunning) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      sled.draw();
+
       obstacles.forEach(obstacle => {
-        obstacle.x -= 6;
-        if (obstacle.x + obstacle.width < 0) obstacles.shift();
-        if (
-          player.x < obstacle.x + obstacle.width &&
-          player.x + player.width > obstacle.x &&
-          player.y < obstacle.y + obstacle.height &&
-          player.y + player.height > obstacle.y
-        ) {
-          gameOver = true;
+        obstacle.update();
+        obstacle.draw();
+        if (obstacle.checkCollision(sled)) endGame();
+      });
+
+      presents.forEach((present, index) => {
+        present.update();
+        present.draw();
+        if (present.collect(sled)) {
+          score += 10;
+          scoreDisplay.textContent = score;
+          presents[index] = new Present(); // Replace with new present
         }
       });
 
-      // Spawn obstacles
-      if (Math.random() < 0.02) {
-        obstacles.push({
-          x: canvas.width,
-          y: canvas.height - 60,
-          width: 30,
-          height: 30
-        });
-      }
-
-      // Update score
-      if (!gameOver) score++;
+      requestAnimationFrame(update);
     }
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Draw player
-      ctx.fillStyle = "red";
-      ctx.fillRect(player.x, player.y, player.width, player.height);
-
-      // Draw obstacles
-      ctx.fillStyle = "black";
-      obstacles.forEach(obstacle => {
-        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-      });
-
-      // Draw score
-      ctx.fillStyle = "blue";
-      ctx.font = "30px Arial";
-      ctx.fillText("Score: " + score, 10, 30);
-
-      if (gameOver) {
-        ctx.fillStyle = "red";
-        ctx.font = "50px Arial";
-        ctx.fillText("Game Over!", canvas.width / 2 - 150, canvas.height / 2);
-      }
+    function endGame() {
+      gameRunning = false;
+      gameOverScreen.style.display = 'block';
+      finalScoreDisplay.textContent = score;
     }
 
-    function loop() {
-      update();
-      draw();
-      requestAnimationFrame(loop);
-    }
-
-    document.addEventListener("keydown", (e) => {
-      if (e.code === "Space") jump();
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft') sled.move('left');
+      if (e.key === 'ArrowRight') sled.move('right');
     });
 
-    loop();
+    restartBtn.addEventListener('click', () => {
+      score = 0;
+      scoreDisplay.textContent = score;
+      gameRunning = true;
+      gameOverScreen.style.display = 'none';
+      update();
+    });
+
+    update();
   </script>
 </body>
 </html>
