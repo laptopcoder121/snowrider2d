@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snow Rider 2D</title>
+  <style>
+    body, html { margin: 0; padding: 0; overflow: hidden; background: #87CEEB; }
+    canvas { display: block; background: #FFF; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let player = { x: 100, y: canvas.height - 80, width: 50, height: 50, dy: 0, isJumping: false };
+    let obstacles = [];
+    let score = 0;
+    let gameOver = false;
+
+    function jump() {
+      if (!player.isJumping) {
+        player.isJumping = true;
+        player.dy = -12;
+      }
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      // Player physics
+      player.dy += 0.5; // Gravity
+      player.y += player.dy;
+      if (player.y > canvas.height - player.height - 30) { // Ground collision
+        player.y = canvas.height - player.height - 30;
+        player.dy = 0;
+        player.isJumping = false;
+      }
+
+      // Obstacles
+      obstacles.forEach(obstacle => {
+        obstacle.x -= 6;
+        if (obstacle.x + obstacle.width < 0) obstacles.shift();
+        if (
+          player.x < obstacle.x + obstacle.width &&
+          player.x + player.width > obstacle.x &&
+          player.y < obstacle.y + obstacle.height &&
+          player.y + player.height > obstacle.y
+        ) {
+          gameOver = true;
+        }
+      });
+
+      // Spawn obstacles
+      if (Math.random() < 0.02) {
+        obstacles.push({
+          x: canvas.width,
+          y: canvas.height - 60,
+          width: 30,
+          height: 30
+        });
+      }
+
+      // Update score
+      if (!gameOver) score++;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw player
+      ctx.fillStyle = "red";
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+
+      // Draw obstacles
+      ctx.fillStyle = "black";
+      obstacles.forEach(obstacle => {
+        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+      });
+
+      // Draw score
+      ctx.fillStyle = "blue";
+      ctx.font = "30px Arial";
+      ctx.fillText("Score: " + score, 10, 30);
+
+      if (gameOver) {
+        ctx.fillStyle = "red";
+        ctx.font = "50px Arial";
+        ctx.fillText("Game Over!", canvas.width / 2 - 150, canvas.height / 2);
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Space") jump();
+    });
+
+    loop();
+  </script>
+</body>
+</html>
